@@ -68,3 +68,7 @@ def get_settings(home_id="default"):
 
 def put_settings(settings, home_id="default"):
     return store.put_settings(settings, home_id=home_id)
+
+
+def set_agent_review(eid, review_dict):
+    return store.set_agent_review(str(eid), review_dict)

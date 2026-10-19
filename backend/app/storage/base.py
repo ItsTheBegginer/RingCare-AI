@@ -98,3 +98,8 @@ class EventStore(ABC):
     def put_settings(self, settings: dict, home_id: str = "default") -> dict:
         """Save caregiver settings for a home."""
         pass
+
+    @abstractmethod
+    def set_agent_review(self, eid: str, review: dict) -> bool:
+        """Store agent_review annotation on an event. Returns True on success."""
+        pass

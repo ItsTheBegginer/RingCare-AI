@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Event } from '../../types/events';
+import { Event, AgentReview } from '../../types/events';
 import { StatusBadge } from '../common/StatusBadge';
 import { SeverityBadge } from '../common/SeverityBadge';
 import {
@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Download,
   FileText,
+  Bot,
 } from 'lucide-react';
 
 const CategoryBadge: React.FC<{ category?: Event['category'] }> = ({ category }) => {
@@ -600,6 +601,118 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 <p className="mt-1 text-xs text-slate-500 italic">
                   "{event.actionLog.caregiverNote}"
                 </p>
+              )}
+            </div>
+          )}
+
+          {/* Section 5: AI Second-Opinion Review (Phase 9, advisory) */}
+          {(event.agentReview ||
+            event.severity === 'high' ||
+            (event.fallIndicator && event.fallIndicator.level !== 'none') ||
+            (event.securityIndicator && event.securityIndicator.level !== 'none')) && (
+            <div className="rounded-xl bg-gradient-to-br from-indigo-50/50 via-purple-50/30 to-white border border-indigo-200/60 p-4 shadow-xs">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-indigo-100">
+                <div className="flex items-center gap-2">
+                  <Bot className="w-4 h-4 text-indigo-500" />
+                  <h3 className="font-bold text-xs text-indigo-800 uppercase tracking-wider">
+                    Second-opinion review (AI, advisory)
+                  </h3>
+                </div>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-200">
+                  ADVISORY ONLY
+                </span>
+              </div>
+
+              {/* Pending / not yet available */}
+              {!event.agentReview && (
+                <div className="flex items-center gap-2 text-slate-400 text-xs py-1">
+                  <span className="w-2 h-2 rounded-full bg-slate-300 animate-pulse shrink-0" />
+                  <span>AI review pending — not yet available for this event.</span>
+                </div>
+              )}
+
+              {/* Unavailable / skipped / invalid */}
+              {event.agentReview && (event.agentReview.status === 'unavailable' || event.agentReview.status === 'skipped_cap' || event.agentReview.status === 'invalid') && (
+                <div className="flex items-center gap-2 text-slate-400 text-xs py-1">
+                  <Info className="w-3.5 h-3.5 shrink-0" />
+                  <span>AI review unavailable for this event.</span>
+                </div>
+              )}
+
+              {/* Full review */}
+              {event.agentReview && event.agentReview.status === 'ok' && (
+                <div className="space-y-3">
+                  {/* Agreement badge */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-semibold text-slate-600">Agreement:</span>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                      event.agentReview.agrees_with_rules === 'agrees'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : event.agentReview.agrees_with_rules === 'disagrees'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
+                    }`}>
+                      {event.agentReview.agrees_with_rules.toUpperCase()}
+                    </span>
+                    <span className="text-[10px] text-slate-400 ml-auto">
+                      Confidence: {Math.round(event.agentReview.confidence * 100)}%
+                    </span>
+                  </div>
+
+                  {/* Observations */}
+                  {event.agentReview.observations.length > 0 && (
+                    <div className="p-3 rounded-lg bg-white border border-slate-200/80">
+                      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
+                        Observations
+                      </span>
+                      <ul className="space-y-1.5">
+                        {event.agentReview.observations.map((obs, idx) => (
+                          <li key={idx} className="text-xs text-slate-700">
+                            {obs.text}
+                            <span className="ml-1 text-[10px] text-slate-400 font-mono">[{obs.evidence_ref}]</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* False positive reasons */}
+                  {event.agentReview.possible_false_positive_reasons.length > 0 && (
+                    <div className="p-3 rounded-lg bg-amber-50/60 border border-amber-100">
+                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block mb-1">
+                        Possible False Positive Reasons
+                      </span>
+                      <ul className="space-y-0.5 text-xs text-amber-900">
+                        {event.agentReview.possible_false_positive_reasons.map((r, idx) => (
+                          <li key={idx} className="flex items-start gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-1" />
+                            {r}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Suggested action */}
+                  {event.agentReview.suggested_action && (
+                    <div className="p-3 rounded-lg bg-indigo-50/60 border border-indigo-100">
+                      <span className="text-[11px] font-bold text-indigo-800 uppercase tracking-wider block mb-1">
+                        Suggested Action
+                      </span>
+                      <p className="text-xs text-indigo-900">{event.agentReview.suggested_action}</p>
+                    </div>
+                  )}
+
+                  {/* Model ID */}
+                  <p className="text-[10px] font-mono text-slate-400">
+                    Model: {event.agentReview.model_id || 'unknown'}
+                  </p>
+
+                  {/* Disclaimer */}
+                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/60 text-[10px] text-slate-500 italic leading-relaxed">
+                    This is an AI second opinion. It can be wrong. The priority shown above is set by the rules engine and has not been changed.
+                  </div>
+                </div>
               )}
             </div>
           )}

@@ -42,8 +42,14 @@ class SqliteStore(EventStore):
                 actor TEXT,
                 reminders INTEGER DEFAULT 0,
                 last_alert_at REAL,
-                last_alert_error TEXT
+                last_alert_error TEXT,
+                agent_review TEXT
             )""")
+            # Phase 9: add agent_review column if missing (idempotent ALTER TABLE)
+            try:
+                c.execute("ALTER TABLE events ADD COLUMN agent_review TEXT")
+            except Exception:
+                pass  # column already exists
             c.execute("""CREATE TABLE IF NOT EXISTS settings(
                 home_id TEXT PRIMARY KEY,
                 data TEXT,
@@ -62,6 +68,11 @@ class SqliteStore(EventStore):
                 d["assessment"] = json.loads(d["assessment"])
             except Exception:
                 d["assessment"] = {}
+        if isinstance(d.get("agent_review"), str):
+            try:
+                d["agent_review"] = json.loads(d["agent_review"])
+            except Exception:
+                d["agent_review"] = None
         return d
 
     def insert(
@@ -219,3 +230,12 @@ class SqliteStore(EventStore):
                 (home_id, json.dumps(settings), time.time()),
             )
         return settings
+
+    def set_agent_review(self, eid: str, review: dict) -> bool:
+        clean_id = str(eid).strip()
+        with self._c() as c:
+            cur = c.execute(
+                """UPDATE events SET agent_review = ? WHERE id = ? OR event_id = ?""",
+                (json.dumps(review), clean_id, clean_id),
+            )
+            return cur.rowcount > 0

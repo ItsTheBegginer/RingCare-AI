@@ -93,6 +93,10 @@ def publish(ev: dict):
         notify_initial(ev)
     except Exception as e:
         logger.warning(f"[notify] Initial alert dispatch error: {e}")
+    # Phase 9 — optional Bedrock review agent (runs after alert, never in alert path)
+    if os.getenv("AGENT_ENABLED", "false").lower() == "true":
+        from .agent import maybe_review
+        asyncio.ensure_future(run_in_threadpool(maybe_review, ev))
 
 
 async def poller(seconds: int):
@@ -213,6 +217,7 @@ def health():
         "notify": notify_channels,
         "sns_configured": bool(os.getenv("SNS_TOPIC_ARN")),
         "sample_clips": [p.name for p in pipeline.sample_clips()],
+        "agent": "enabled" if os.getenv("AGENT_ENABLED", "false").lower() == "true" else "disabled",
     }
 
 

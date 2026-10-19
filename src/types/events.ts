@@ -21,6 +21,26 @@ export interface CVAnalysis {
 
 export type EventCategory = 'caretaking' | 'security' | 'both';
 
+export interface AgentObservation {
+  text: string;
+  evidence_ref: string;
+}
+
+export type AgentAgreement = 'agrees' | 'disagrees' | 'uncertain';
+export type AgentStatus = 'ok' | 'unavailable' | 'invalid' | 'skipped_cap' | 'pending';
+
+export interface AgentReview {
+  agrees_with_rules: AgentAgreement;
+  observations: AgentObservation[];
+  possible_false_positive_reasons: string[];
+  suggested_action: string;
+  suggested_priority: 'low' | 'medium' | 'high';
+  confidence: number;
+  model_id: string;
+  status: AgentStatus;
+  created_at: number;
+}
+
 export interface FallIndicator {
   level: 'none' | 'possible' | 'likely';
   signals: string[];
@@ -81,6 +101,7 @@ export interface Event {
     caregiverNote?: string;
     actor: string;
   };
+  agentReview?: AgentReview | null;
 }
 
 export interface Camera {
@@ -123,6 +144,7 @@ export interface CaregiverSettings {
   stationaryAlertThresholdSeconds: number;
   aiReviewSensitivity: 'low' | 'balanced' | 'high';
   cameraNightModeEnhance: boolean;
+  securityDetectionEnabled: boolean;
   residentProfile: {
     name: string;
     residence: string;

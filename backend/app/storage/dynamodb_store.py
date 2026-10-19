@@ -289,12 +289,23 @@ class DynamoDbStore(EventStore):
             return False
 
     def clear(self) -> None:
-        """Scan and delete all items (for dev reset only)."""
+        """Scan and delete all items (for dev reset only).
+        Uses individual DeleteItem calls (covered by the least-privilege IAM policy)
+        rather than batch_writer which requires BatchWriteItem permission.
+        """
         try:
-            scan = self.events_table.scan(ProjectionExpression="event_id")
-            with self.events_table.batch_writer() as batch:
-                for item in scan.get("Items", []):
-                    batch.delete_item(Key={"event_id": item["event_id"]})
+            # Paginate in case there are more than 1 MB of keys
+            last_key = None
+            while True:
+                kwargs: dict = {"ProjectionExpression": "event_id"}
+                if last_key:
+                    kwargs["ExclusiveStartKey"] = last_key
+                resp = self.events_table.scan(**kwargs)
+                for item in resp.get("Items", []):
+                    self.events_table.delete_item(Key={"event_id": item["event_id"]})
+                last_key = resp.get("LastEvaluatedKey")
+                if not last_key:
+                    break
         except Exception as e:
             logger.error(f"Error clearing DynamoDB events: {e}")
 
@@ -321,3 +332,19 @@ class DynamoDbStore(EventStore):
             logger.error(f"Failed to save settings to DynamoDB: {e}")
             raise
         return settings
+
+    def set_agent_review(self, eid: str, review: dict) -> bool:
+        from .utils import to_decimal
+        pk = self._resolve_pk(eid) if not (str(eid).startswith("ring#") or str(eid).startswith("sim#")) else str(eid)
+        if not pk:
+            return False
+        try:
+            self.events_table.update_item(
+                Key={"event_id": pk},
+                UpdateExpression="SET agent_review = :review",
+                ExpressionAttributeValues={":review": to_decimal(review)},
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to set agent_review in DynamoDB for {eid}: {e}")
+            return False

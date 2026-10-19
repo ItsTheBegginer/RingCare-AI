@@ -118,4 +118,5 @@ def to_event(r: dict) -> dict:
     if r["status"] in ("acknowledged", "dismissed") and r.get("acted_at"):
         ev["actionLog"] = {"action": r["status"], "timestamp": iso(r["acted_at"]),
                            "caregiverNote": r.get("note") or "", "actor": r.get("actor") or "Primary Caregiver"}
+    ev["agentReview"] = r.get("agent_review") or None
     return ev
