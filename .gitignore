@@ -1,0 +1,14 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+backend/.env
+backend/*.db
+backend/.ring_tokens.json
+backend/clips/*.mp4
+backend/.venv/
+__pycache__/

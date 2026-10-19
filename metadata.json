@@ -1,0 +1,6 @@
+{
+  "name": "RingCare AI",
+  "description": "Intelligent caregiver monitoring dashboard with computer vision event triage, event review, and camera activity management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
