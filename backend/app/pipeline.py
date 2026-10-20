@@ -149,8 +149,16 @@ def simulate(video: str | None = None, device_id="local-sample", device_name="Lo
         clip_playable = make_playable(path)
         clip_file = clip_playable.name
         if CLIPS_BACKEND == "s3" and S3_BUCKET:
-            _upload_clip_to_s3(clip_playable)
-        video_status = "sample"
+            uploaded = _upload_clip_to_s3(clip_playable)
+            if not uploaded:
+                # Upload failed; local file still exists but won't survive container restart.
+                # Surface this honestly so the clip route doesn't serve a broken pre-signed URL.
+                clip_file = None
+                video_status = "unavailable"
+            else:
+                video_status = "sample"
+        else:
+            video_status = "sample"
     except Exception as exc:
         vision = {"error": f"Clip analysis failed: {exc}"}
         result = assess(meta, vision)
@@ -205,7 +213,12 @@ def _ingest_device(dev: dict, limit: int, wait: int, notes: list) -> list:
             )
             clip_name = clip_playable.name
             if CLIPS_BACKEND == "s3" and S3_BUCKET:
-                _upload_clip_to_s3(clip_playable)
+                uploaded = _upload_clip_to_s3(clip_playable)
+                if not uploaded:
+                    # Upload failed: clear clip_name so the clip route returns 404
+                    # rather than a pre-signed URL for a key that doesn't exist in S3.
+                    clip_name = None
+                    v_status = "unavailable"
         except Exception as exc:
             notes.append(f"{dev['name']}: clip analysis failed ({exc}).")
             vision = {"error": f"Clip analysis failed: {exc}"}

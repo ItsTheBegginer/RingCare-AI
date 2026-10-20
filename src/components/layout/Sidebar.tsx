@@ -94,9 +94,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="font-semibold text-base tracking-tight text-white">
                   RingCare AI
                 </span>
-                <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 bg-teal-950/80 border border-teal-700/60 text-teal-300 rounded">
-                  PROTOTYPE
-                </span>
               </div>
               <p className="text-[11px] text-slate-400 font-normal">
                 Intelligent caregiver monitoring
@@ -168,10 +165,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Layers className="w-3.5 h-3.5 text-teal-400 shrink-0" />
             <div className="flex-1 min-w-0">
               <span className="block truncate font-medium text-slate-200">
-                Future Architecture
+                How it works &amp; Limitations
               </span>
               <span className="block text-[10px] text-slate-400 truncate">
-                Ring → OpenCV → AI Agent
+                Real pipeline &amp; known limits
               </span>
             </div>
           </button>

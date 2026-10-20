@@ -2,22 +2,16 @@ import json
 import sqlite3
 import time
 from typing import Any, Dict, List, Optional
-
 from .base import DEFAULT_SETTINGS, EventStore
 from .utils import make_event_ids
-
 DB_FILE = "ringcare_v2.db"
-
-
 class SqliteStore(EventStore):
     def __init__(self, db_path: str = DB_FILE):
         self.db_path = db_path
-
     def _c(self) -> sqlite3.Connection:
         c = sqlite3.connect(self.db_path)
         c.row_factory = sqlite3.Row
         return c
-
     def init(self) -> None:
         with self._c() as c:
             # Events table (supports both string IDs and legacy integer rows)
@@ -42,20 +36,13 @@ class SqliteStore(EventStore):
                 actor TEXT,
                 reminders INTEGER DEFAULT 0,
                 last_alert_at REAL,
-                last_alert_error TEXT,
-                agent_review TEXT
+                last_alert_error TEXT
             )""")
-            # Phase 9: add agent_review column if missing (idempotent ALTER TABLE)
-            try:
-                c.execute("ALTER TABLE events ADD COLUMN agent_review TEXT")
-            except Exception:
-                pass  # column already exists
             c.execute("""CREATE TABLE IF NOT EXISTS settings(
                 home_id TEXT PRIMARY KEY,
                 data TEXT,
                 updated_at REAL
             )""")
-
     def _row(self, r: sqlite3.Row) -> dict:
         d = dict(r)
         if isinstance(d.get("vision"), str):
@@ -68,13 +55,7 @@ class SqliteStore(EventStore):
                 d["assessment"] = json.loads(d["assessment"])
             except Exception:
                 d["assessment"] = {}
-        if isinstance(d.get("agent_review"), str):
-            try:
-                d["agent_review"] = json.loads(d["agent_review"])
-            except Exception:
-                d["agent_review"] = None
         return d
-
     def insert(
         self,
         device_id: str,
@@ -94,7 +75,6 @@ class SqliteStore(EventStore):
         now = time.time()
         ts = event_ts if event_ts is not None else now
         pk, public_id = make_event_ids(ring_event_id)
-
         # Default video_status if not explicitly provided
         if not video_status:
             if source in ("simulated", "ring+sample-clip"):
@@ -103,7 +83,6 @@ class SqliteStore(EventStore):
                 video_status = "converted" if ".play." in clip_file or clip_file.endswith(".webm") else "ring_clip"
             else:
                 video_status = "unavailable"
-
         with self._c() as c:
             cur = c.execute(
                 """INSERT OR IGNORE INTO events(
@@ -129,7 +108,6 @@ class SqliteStore(EventStore):
                 ),
             )
             return public_id if cur.rowcount > 0 else None
-
     def get(self, eid: str) -> Optional[dict]:
         clean_id = str(eid).strip()
         with self._c() as c:
@@ -140,7 +118,6 @@ class SqliteStore(EventStore):
                 (clean_id, clean_id, clean_id.replace("evt_", ""), clean_id),
             ).fetchone()
             return self._row(r) if r else None
-
     def list_events(self, limit: int = 100, home_id: str = "default") -> List[dict]:
         with self._c() as c:
             rows = c.execute(
@@ -150,7 +127,6 @@ class SqliteStore(EventStore):
                 (home_id, limit),
             ).fetchall()
             return [self._row(r) for r in rows]
-
     def has_ring_event(self, ring_event_id: str) -> bool:
         if not ring_event_id:
             return False
@@ -160,7 +136,6 @@ class SqliteStore(EventStore):
                 (ring_event_id, f"ring#{ring_event_id}"),
             ).fetchone()
             return r is not None
-
     def set_status(
         self,
         eid: str,
@@ -177,7 +152,6 @@ class SqliteStore(EventStore):
                 (status, note, time.time(), actor, clean_id, clean_id, clean_id.replace("evt_", "")),
             )
             return cur.rowcount > 0
-
     def unacknowledged(self, limit: int = 50, home_id: str = "default") -> List[dict]:
         with self._c() as c:
             rows = c.execute(
@@ -187,7 +161,6 @@ class SqliteStore(EventStore):
                 (home_id, limit),
             ).fetchall()
             return [self._row(r) for r in rows]
-
     def mark_alerted(
         self,
         eid: str,
@@ -206,11 +179,9 @@ class SqliteStore(EventStore):
                 (now, error, clean_id, clean_id, expected_reminders),
             )
             return cur.rowcount > 0
-
     def clear(self) -> None:
         with self._c() as c:
             c.execute("DELETE FROM events")
-
     def get_settings(self, home_id: str = "default") -> dict:
         with self._c() as c:
             r = c.execute("SELECT data FROM settings WHERE home_id = ?", (home_id,)).fetchone()
@@ -220,7 +191,6 @@ class SqliteStore(EventStore):
                 except Exception:
                     pass
             return dict(DEFAULT_SETTINGS)
-
     def put_settings(self, settings: dict, home_id: str = "default") -> dict:
         with self._c() as c:
             c.execute(
@@ -230,12 +200,3 @@ class SqliteStore(EventStore):
                 (home_id, json.dumps(settings), time.time()),
             )
         return settings
-
-    def set_agent_review(self, eid: str, review: dict) -> bool:
-        clean_id = str(eid).strip()
-        with self._c() as c:
-            cur = c.execute(
-                """UPDATE events SET agent_review = ? WHERE id = ? OR event_id = ?""",
-                (json.dumps(review), clean_id, clean_id),
-            )
-            return cur.rowcount > 0

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Event, AgentReview } from '../../types/events';
+import { Event } from '../../types/events';
 import { StatusBadge } from '../common/StatusBadge';
 import { SeverityBadge } from '../common/SeverityBadge';
 import {
@@ -21,9 +21,7 @@ import {
   AlertCircle,
   Download,
   FileText,
-  Bot,
 } from 'lucide-react';
-
 const CategoryBadge: React.FC<{ category?: Event['category'] }> = ({ category }) => {
   if (category === 'both') {
     return (
@@ -48,8 +46,6 @@ const CategoryBadge: React.FC<{ category?: Event['category'] }> = ({ category })
     </span>
   );
 };
-
-
 const VideoStatusBadge: React.FC<{ status?: Event['videoStatus']; source?: string }> = ({
   status,
   source,
@@ -93,7 +89,6 @@ const VideoStatusBadge: React.FC<{ status?: Event['videoStatus']; source?: strin
     </span>
   );
 };
-
 interface EventDetailsModalProps {
   event: Event | null;
   isOpen: boolean;
@@ -101,7 +96,6 @@ interface EventDetailsModalProps {
   onAcknowledge: (id: string, note?: string) => Promise<void>;
   onDismiss: (id: string, note?: string) => Promise<void>;
 }
-
 export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
   event,
   isOpen,
@@ -112,9 +106,7 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
   const [caregiverNote, setCaregiverNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [videoErrorEventId, setVideoErrorEventId] = useState<string | null>(null);
-
   if (!isOpen || !event) return null;
-
   const formatEventTime = (iso: string) => {
     try {
       const d = new Date(iso);
@@ -126,9 +118,7 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
       return { time: iso, date: 'Today' };
     }
   };
-
   const { time, date } = formatEventTime(event.timestamp);
-
   const handleAcknowledge = async () => {
     setIsSubmitting(true);
     try {
@@ -138,7 +128,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
       setIsSubmitting(false);
     }
   };
-
   const handleDismiss = async () => {
     setIsSubmitting(true);
     try {
@@ -148,7 +137,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
       setIsSubmitting(false);
     }
   };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-900/40 backdrop-blur-xs animate-in fade-in">
       <div
@@ -177,7 +165,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               </p>
             </div>
           </div>
-
           <div className="flex items-center gap-2">
             <CategoryBadge category={event.category} />
             <StatusBadge status={event.aiStatus} />
@@ -190,7 +177,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             </button>
           </div>
         </div>
-
         {/* Scrollable Content Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs text-slate-700">
           {/* Section 1: Event Information */}
@@ -202,25 +188,21 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               </span>
               <SeverityBadge severity={event.severity} />
             </div>
-
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div>
                 <span className="text-slate-500 text-[11px] block">Camera</span>
                 <span className="font-semibold text-slate-900 mt-0.5 block">{event.cameraName}</span>
               </div>
-
               <div>
                 <span className="text-slate-500 text-[11px] block">Event Type</span>
                 <span className="font-medium text-slate-800 mt-0.5 block capitalize">
                   {event.eventType.replace('_', ' ')}
                 </span>
               </div>
-
               <div>
                 <span className="text-slate-500 text-[11px] block">Time</span>
                 <span className="font-mono text-slate-900 mt-0.5 block tabular-nums">{time}</span>
               </div>
-
               <div>
                 <span className="text-slate-500 text-[11px] block">Person Detected</span>
                 <span className="font-medium text-slate-900 mt-0.5 flex items-center gap-1">
@@ -228,14 +210,12 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                   {event.personDetected ? 'Yes' : 'No'}
                 </span>
               </div>
-
               <div>
                 <span className="text-slate-500 text-[11px] block">Motion Score</span>
                 <span className="font-mono font-semibold text-slate-900 mt-0.5 block tabular-nums">
                   {Math.round(event.motionScore * 100)}%
                 </span>
               </div>
-
               <div>
                 <span className="text-slate-500 text-[11px] block">Stationary Duration</span>
                 <span className="font-mono font-semibold text-amber-700 mt-0.5 block tabular-nums">
@@ -243,7 +223,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 </span>
               </div>
             </div>
-
             <div className="mt-3 pt-3 border-t border-slate-100">
               <span className="text-slate-500 text-[11px] block">Summary</span>
               <p className="mt-0.5 text-xs text-slate-800 leading-relaxed font-normal">
@@ -251,7 +230,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               </p>
             </div>
           </div>
-
           {/* Section 2: Computer Vision Analysis (High-tech Dark Telemetry Panel) */}
           <div className="rounded-xl bg-[#0c1322] text-white border border-slate-800 p-4 shadow-xs">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
@@ -268,7 +246,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 </span>
               </div>
             </div>
-
             {/* Real keyframe + detection box */}
             {event.thumbnail && (
               <div className="relative rounded-lg overflow-hidden mb-3.5 border border-slate-800 bg-black">
@@ -299,7 +276,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 ))}
               </div>
             )}
-
             {/* Honest sample notice if Ring clip was unavailable */}
             {(event.source === 'ring+sample-clip' || event.videoStatus === 'sample') && (
               <div className="mb-3.5 rounded-lg bg-amber-950/40 border border-amber-500/40 p-3 flex items-start gap-2.5 text-amber-200">
@@ -312,7 +288,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 </div>
               </div>
             )}
-
             {/* Video Player / Fallback */}
             {event.clipUrl && videoErrorEventId !== event.id ? (
               <video
@@ -347,7 +322,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 <span>No video clip file available for this event (motion registered without video download).</span>
               </div>
             )}
-
             {/* Summary strip (shown instead of the wireframe when a real keyframe exists) */}
             {event.thumbnail && (
               <div className="flex items-center justify-between text-[10px] text-slate-300 font-mono mb-3.5">
@@ -355,7 +329,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 <span className="text-teal-400">CONFIDENCE: {Math.round(event.cvAnalysis.confidence * 100)}%</span>
               </div>
             )}
-
             {/* Wireframe fallback when there is no keyframe */}
             {!event.thumbnail && (
               <div className="relative h-44 rounded-lg bg-slate-950 border border-slate-800 overflow-hidden mb-3.5 flex flex-col justify-between p-3 select-none text-white">
@@ -364,7 +337,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-teal-400" />
                 <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-teal-400" />
                 <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-teal-400" />
-
                 {/* Top overlay metadata */}
                 <div className="flex items-center justify-between z-10 text-[10px] font-mono">
                   <span className="text-teal-300 flex items-center gap-1.5">
@@ -373,7 +345,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                   </span>
                   <span className="text-slate-400">ZONE: {event.cvAnalysis.primaryZone}</span>
                 </div>
-
                 {/* Mock Bounding Boxes */}
                 <div className="relative flex-1 my-2">
                   {event.cvAnalysis.boundingBoxes?.map(box => (
@@ -401,14 +372,12 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                       </span>
                     </div>
                   ))}
-
                   {(!event.cvAnalysis.boundingBoxes || event.cvAnalysis.boundingBoxes.length === 0) && (
                     <div className="h-full flex items-center justify-center text-center text-slate-400 text-xs">
                       No keyframe available for {event.cameraName}
                     </div>
                   )}
                 </div>
-
                 {/* Bottom notice */}
                 <div className="flex items-center justify-between z-10 text-[10px] text-slate-300 border-t border-slate-800 pt-1 font-mono">
                   <span>POSTURE: {event.cvAnalysis.postureEstimation?.toUpperCase() || 'NORMAL'}</span>
@@ -416,7 +385,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 </div>
               </div>
             )}
-
             {/* CV Metric Table */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
               <div className="p-2 rounded bg-slate-900 border border-slate-800">
@@ -426,7 +394,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                   {event.cvAnalysis.personDetected ? 'Yes (✓)' : 'No'}
                 </span>
               </div>
-
               <div className="p-2 rounded bg-slate-900 border border-slate-800">
                 <span className="text-slate-400 text-[10px] block">Motion detected</span>
                 <span className="font-semibold text-emerald-400 flex items-center gap-1 mt-0.5">
@@ -434,14 +401,12 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                   {event.cvAnalysis.motionDetected ? 'Yes (✓)' : 'No'}
                 </span>
               </div>
-
               <div className="p-2 rounded bg-slate-900 border border-slate-800">
                 <span className="text-slate-400 text-[10px] block">Motion score</span>
                 <span className="font-semibold text-teal-300 mt-0.5 block tabular-nums">
                   {Math.round(event.cvAnalysis.motionScore * 100)}%
                 </span>
               </div>
-
               <div className="p-2 rounded bg-slate-900 border border-slate-800">
                 <span className="text-slate-400 text-[10px] block">Stationary duration</span>
                 <span className="font-semibold text-amber-300 mt-0.5 block tabular-nums">
@@ -450,7 +415,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               </div>
             </div>
           </div>
-
           {/* Fall Indicator Alert Banner (if level != none) */}
           {event.fallIndicator && event.fallIndicator.level !== 'none' && (
             <div className="rounded-xl bg-rose-50 border border-rose-200 p-4 shadow-xs">
@@ -481,7 +445,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               </p>
             </div>
           )}
-
           {/* Security Indicator Alert Banner (if level != none) */}
           {event.securityIndicator && event.securityIndicator.level !== 'none' && (
             <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 shadow-xs">
@@ -512,7 +475,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               </p>
             </div>
           )}
-
           {/* Section 3: Evidence-Based Assessment (Rules Engine) */}
           <div className="rounded-xl bg-gradient-to-br from-indigo-50/70 via-purple-50/30 to-white border border-indigo-200/70 p-4 shadow-xs">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-indigo-100">
@@ -526,7 +488,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 RULES ENGINE ({event.aiAssessment.analysisVersion || 'v2-rules'})
               </span>
             </div>
-
             <div className="space-y-3">
               <div className="p-3.5 rounded-lg bg-white border border-indigo-100 shadow-2xs">
                 <div className="flex items-center gap-2 text-xs font-semibold text-amber-800 mb-1">
@@ -537,7 +498,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                   {event.aiAssessment.summary}
                 </p>
               </div>
-
               {/* Observed Detector Evidence */}
               {event.aiAssessment.evidence && event.aiAssessment.evidence.length > 0 && (
                 <div className="p-3 rounded-lg bg-white border border-slate-200/80">
@@ -554,7 +514,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                   </ul>
                 </div>
               )}
-
               {/* System Limitations & Disclaimers */}
               {event.aiAssessment.limitations && event.aiAssessment.limitations.length > 0 && (
                 <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70 text-[11px]">
@@ -569,7 +528,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                   </ul>
                 </div>
               )}
-
               <div className="p-3.5 rounded-lg bg-teal-50/80 border border-teal-200/80">
                 <span className="text-[11px] font-bold text-teal-900 uppercase tracking-wider block mb-1">
                   Recommended Action
@@ -580,7 +538,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               </div>
             </div>
           </div>
-
           {/* Section 4: Caregiver Action History if already logged */}
           {event.actionLog && (
             <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3.5">
@@ -604,119 +561,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               )}
             </div>
           )}
-
-          {/* Section 5: AI Second-Opinion Review (Phase 9, advisory) */}
-          {(event.agentReview ||
-            event.severity === 'high' ||
-            (event.fallIndicator && event.fallIndicator.level !== 'none') ||
-            (event.securityIndicator && event.securityIndicator.level !== 'none')) && (
-            <div className="rounded-xl bg-gradient-to-br from-indigo-50/50 via-purple-50/30 to-white border border-indigo-200/60 p-4 shadow-xs">
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-indigo-100">
-                <div className="flex items-center gap-2">
-                  <Bot className="w-4 h-4 text-indigo-500" />
-                  <h3 className="font-bold text-xs text-indigo-800 uppercase tracking-wider">
-                    Second-opinion review (AI, advisory)
-                  </h3>
-                </div>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-200">
-                  ADVISORY ONLY
-                </span>
-              </div>
-
-              {/* Pending / not yet available */}
-              {!event.agentReview && (
-                <div className="flex items-center gap-2 text-slate-400 text-xs py-1">
-                  <span className="w-2 h-2 rounded-full bg-slate-300 animate-pulse shrink-0" />
-                  <span>AI review pending — not yet available for this event.</span>
-                </div>
-              )}
-
-              {/* Unavailable / skipped / invalid */}
-              {event.agentReview && (event.agentReview.status === 'unavailable' || event.agentReview.status === 'skipped_cap' || event.agentReview.status === 'invalid') && (
-                <div className="flex items-center gap-2 text-slate-400 text-xs py-1">
-                  <Info className="w-3.5 h-3.5 shrink-0" />
-                  <span>AI review unavailable for this event.</span>
-                </div>
-              )}
-
-              {/* Full review */}
-              {event.agentReview && event.agentReview.status === 'ok' && (
-                <div className="space-y-3">
-                  {/* Agreement badge */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-semibold text-slate-600">Agreement:</span>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${
-                      event.agentReview.agrees_with_rules === 'agrees'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : event.agentReview.agrees_with_rules === 'disagrees'
-                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                        : 'bg-slate-100 text-slate-600 border-slate-200'
-                    }`}>
-                      {event.agentReview.agrees_with_rules.toUpperCase()}
-                    </span>
-                    <span className="text-[10px] text-slate-400 ml-auto">
-                      Confidence: {Math.round(event.agentReview.confidence * 100)}%
-                    </span>
-                  </div>
-
-                  {/* Observations */}
-                  {event.agentReview.observations.length > 0 && (
-                    <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
-                        Observations
-                      </span>
-                      <ul className="space-y-1.5">
-                        {event.agentReview.observations.map((obs, idx) => (
-                          <li key={idx} className="text-xs text-slate-700">
-                            {obs.text}
-                            <span className="ml-1 text-[10px] text-slate-400 font-mono">[{obs.evidence_ref}]</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* False positive reasons */}
-                  {event.agentReview.possible_false_positive_reasons.length > 0 && (
-                    <div className="p-3 rounded-lg bg-amber-50/60 border border-amber-100">
-                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block mb-1">
-                        Possible False Positive Reasons
-                      </span>
-                      <ul className="space-y-0.5 text-xs text-amber-900">
-                        {event.agentReview.possible_false_positive_reasons.map((r, idx) => (
-                          <li key={idx} className="flex items-start gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-1" />
-                            {r}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Suggested action */}
-                  {event.agentReview.suggested_action && (
-                    <div className="p-3 rounded-lg bg-indigo-50/60 border border-indigo-100">
-                      <span className="text-[11px] font-bold text-indigo-800 uppercase tracking-wider block mb-1">
-                        Suggested Action
-                      </span>
-                      <p className="text-xs text-indigo-900">{event.agentReview.suggested_action}</p>
-                    </div>
-                  )}
-
-                  {/* Model ID */}
-                  <p className="text-[10px] font-mono text-slate-400">
-                    Model: {event.agentReview.model_id || 'unknown'}
-                  </p>
-
-                  {/* Disclaimer */}
-                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/60 text-[10px] text-slate-500 italic leading-relaxed">
-                    This is an AI second opinion. It can be wrong. The priority shown above is set by the rules engine and has not been changed.
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Caregiver optional note input before submitting */}
           <div>
             <label className="text-[11px] font-medium text-slate-600 mb-1.5 flex items-center gap-1.5">
@@ -732,7 +576,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             />
           </div>
         </div>
-
         {/* Bottom Action Footer */}
         <div className="p-4 border-t border-slate-200/80 bg-white flex items-center justify-between gap-3">
           <button
@@ -741,7 +584,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
           >
             Close
           </button>
-
           <div className="flex items-center gap-2">
             <button
               onClick={handleDismiss}
@@ -751,7 +593,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               <XCircle className="w-4 h-4 text-slate-500" />
               <span>Dismiss</span>
             </button>
-
             <button
               onClick={handleAcknowledge}
               disabled={isSubmitting || event.aiStatus === 'acknowledged'}

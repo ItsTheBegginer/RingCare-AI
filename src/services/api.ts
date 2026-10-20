@@ -180,7 +180,6 @@ export const ringCareApi = {
 
   async resetDemoData(): Promise<void> {
     await http('/reset', { method: 'POST' });
-    mockBackendStore.resetAll();
     try {
       localStorage.removeItem(CAM_PREF_KEY);
     } catch {

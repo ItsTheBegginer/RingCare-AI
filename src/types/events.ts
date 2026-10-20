@@ -1,7 +1,6 @@
 export type EventStatus = 'normal' | 'review' | 'acknowledged' | 'dismissed';
 export type EventSeverity = 'low' | 'medium' | 'high';
 export type EventType = 'motion' | 'person' | 'stationary' | 'door_access';
-
 export interface CVAnalysis {
   personDetected: boolean;
   motionDetected: boolean;
@@ -18,47 +17,22 @@ export interface CVAnalysis {
     rect: { top: number; left: number; width: number; height: number }; // percentages 0-100
   }>;
 }
-
 export type EventCategory = 'caretaking' | 'security' | 'both';
-
-export interface AgentObservation {
-  text: string;
-  evidence_ref: string;
-}
-
-export type AgentAgreement = 'agrees' | 'disagrees' | 'uncertain';
-export type AgentStatus = 'ok' | 'unavailable' | 'invalid' | 'skipped_cap' | 'pending';
-
-export interface AgentReview {
-  agrees_with_rules: AgentAgreement;
-  observations: AgentObservation[];
-  possible_false_positive_reasons: string[];
-  suggested_action: string;
-  suggested_priority: 'low' | 'medium' | 'high';
-  confidence: number;
-  model_id: string;
-  status: AgentStatus;
-  created_at: number;
-}
-
 export interface FallIndicator {
   level: 'none' | 'possible' | 'likely';
   signals: string[];
   missedSignals?: string[];
 }
-
 export interface SecuritySignal {
   label: string;
   confidence: number;
   frameTime?: number;
 }
-
 export interface SecurityIndicator {
   level: 'none' | 'possible';
   signals: SecuritySignal[];
   notes?: string;
 }
-
 export interface AIAssessment {
   statusLabel: string;
   summary: string;
@@ -69,9 +43,7 @@ export interface AIAssessment {
   limitations?: string[];
   analysisVersion?: string;
 }
-
 export type VideoStatus = 'ring_clip' | 'converted' | 'sample' | 'unavailable' | 'error';
-
 export interface Event {
   id: string;
   cameraId: string;
@@ -101,9 +73,7 @@ export interface Event {
     caregiverNote?: string;
     actor: string;
   };
-  agentReview?: AgentReview | null;
 }
-
 export interface Camera {
   id: string;
   name: string;
@@ -118,7 +88,6 @@ export interface Camera {
   firmwareVersion: string;
   zoneTags: string[];
 }
-
 export interface DashboardSummary {
   todayEventsCount: number;
   requiresReviewCount: number;
@@ -128,7 +97,6 @@ export interface DashboardSummary {
   lastUpdated: string;
   monitoringActive: boolean;
 }
-
 export interface HourlyActivityBucket {
   hourLabel: string; // e.g., "12 AM", "03 AM", "06 AM"
   totalEvents: number;
@@ -136,7 +104,6 @@ export interface HourlyActivityBucket {
   normalEvents: number;
   motionAverage: number;
 }
-
 export interface CaregiverSettings {
   monitoringEnabled: boolean;
   reviewNotificationsEnabled: boolean;
@@ -153,7 +120,6 @@ export interface CaregiverSettings {
     notes: string;
   };
 }
-
 export interface EventFilterCriteria {
   status?: 'all' | EventStatus;
   cameraId?: string;

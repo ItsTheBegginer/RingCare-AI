@@ -12,6 +12,7 @@ import {
   User,
   Activity,
   ArrowRight,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface RecentEventsProps {
@@ -95,7 +96,7 @@ export const RecentEvents: React.FC<RecentEventsProps> = ({
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Click any row to inspect optical computer vision & AI assessment rationale
+            Click any row to inspect optical computer vision &amp; AI assessment rationale
           </p>
         </div>
 
@@ -217,6 +218,22 @@ export const RecentEvents: React.FC<RecentEventsProps> = ({
                       <div className="text-[11px] text-slate-500 truncate max-w-xs sm:max-w-sm mt-0.5">
                         {event.summary}
                       </div>
+                      {(event.category === 'security' || event.category === 'both') && (
+                        <div className="mt-1">
+                          {event.category === 'security' && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-rose-50 text-rose-700 border border-rose-200/80">
+                              <ShieldAlert className="w-3 h-3" />
+                              Security
+                            </span>
+                          )}
+                          {event.category === 'both' && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-purple-50 text-purple-700 border border-purple-200/80">
+                              <ShieldAlert className="w-3 h-3" />
+                              Caretaking + Security
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
 
                     {/* Event Type */}

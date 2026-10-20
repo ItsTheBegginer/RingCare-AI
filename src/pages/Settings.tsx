@@ -152,7 +152,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           <div className="flex items-center justify-between p-3.5 rounded-lg bg-slate-50 border border-slate-200/80">
             <div>
               <span className="text-xs font-semibold text-slate-900 block">
-                Review Notifications & High-Severity Alerts
+                Review Notifications &amp; High-Severity Alerts
               </span>
               <span className="text-[11px] text-slate-500">
                 Receive instant priority alerts whenever the AI recommends caregiver intervention.
@@ -200,6 +200,32 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               />
             </button>
           </div>
+
+          {/* Security Detection */}
+          <div className="flex items-center justify-between p-3.5 rounded-lg bg-slate-50 border border-slate-200/80">
+            <div>
+              <span className="text-xs font-semibold text-slate-900 block">
+                Security Detection
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Detect possible weapons and face coverings from Ring footage. Disable to focus on caretaking events only.
+              </span>
+            </div>
+            <button
+              onClick={() =>
+                handleToggle('securityDetectionEnabled', !localSettings.securityDetectionEnabled)
+              }
+              className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
+                localSettings.securityDetectionEnabled ? 'bg-teal-600' : 'bg-slate-300'
+              }`}
+            >
+              <div
+                className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                  localSettings.securityDetectionEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -207,7 +233,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       <div className="rounded-xl bg-white border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center gap-2 bg-slate-50/60">
           <Cpu className="w-4 h-4 text-purple-600" />
-          <h3 className="text-sm font-bold text-slate-900">AI Computer Vision & Triage Parameters</h3>
+          <h3 className="text-sm font-bold text-slate-900">AI Computer Vision &amp; Triage Parameters</h3>
         </div>
 
         <div className="p-5 space-y-4 text-xs bg-white">

@@ -10,21 +10,55 @@ Tests cover:
   - AWS error mapping: ClientError maps to 502, NoCredentialsError maps to 503
   - Bounded queries: /api/events limits results to 100 items via store list_events
   - /api/health reports storage, vision, ring, notify
+
+NOTE: All tests in this module force STORAGE_BACKEND=sqlite via a module-level autouse fixture
+so they never touch real DynamoDB regardless of the environment variable.
 """
 import json
+import os
 import pytest
 from unittest.mock import MagicMock, patch
 from botocore.exceptions import ClientError, NoCredentialsError
 from fastapi.testclient import TestClient
 
-from backend.app.main import app, _fail
-from backend.app import db, pipeline
-from backend.app.ring import RingAuthError, RingError
-from backend.app.schema import to_event
-from backend.app.storage.utils import make_event_ids
-from backend.app.storage.sqlite_store import SqliteStore
-from backend.app.vision import analyze
-from backend.app.frames import FrameSource
+from app.main import app, _fail
+from app import db, pipeline
+from app.ring import RingAuthError, RingError
+from app.schema import to_event
+from app.storage.utils import make_event_ids
+from app.storage.sqlite_store import SqliteStore
+from app.vision import analyze
+from app.frames import FrameSource
+
+
+@pytest.fixture(autouse=True)
+def force_sqlite_backend(monkeypatch, tmp_path):
+    """Force all tests in this module to use an in-memory SQLite store.
+
+    This prevents test pollution when STORAGE_BACKEND=dynamodb is set in
+    the developer environment, and avoids any dependency on real AWS credentials.
+    """
+    import app.storage as storage_module
+    from app.storage.sqlite_store import SqliteStore
+
+    monkeypatch.setenv("STORAGE_BACKEND", "sqlite")
+    test_store = SqliteStore(str(tmp_path / "test_reliability.db"))
+    test_store.init()
+    monkeypatch.setattr(storage_module, "store", test_store)
+    # db.py delegates to storage_module.store, so patching storage_module.store is enough.
+    # Re-initialise db module's reference as well to be safe.
+    import app.db as db_module
+    monkeypatch.setattr(db_module, "init", test_store.init)
+    monkeypatch.setattr(db_module, "insert", test_store.insert)
+    monkeypatch.setattr(db_module, "get", test_store.get)
+    monkeypatch.setattr(db_module, "list_events", test_store.list_events)
+    monkeypatch.setattr(db_module, "has_ring_event", test_store.has_ring_event)
+    monkeypatch.setattr(db_module, "set_status", test_store.set_status)
+    monkeypatch.setattr(db_module, "unacknowledged", test_store.unacknowledged)
+    monkeypatch.setattr(db_module, "mark_alerted", test_store.mark_alerted)
+    monkeypatch.setattr(db_module, "clear", test_store.clear)
+    monkeypatch.setattr(db_module, "get_settings", test_store.get_settings)
+    monkeypatch.setattr(db_module, "put_settings", test_store.put_settings)
 
 
 client = TestClient(app)
@@ -159,7 +193,7 @@ def test_failed_analysis_handles_error_without_crash():
     assert "error" in analysis
 
     meta = {"device_id": "cam_err", "ring_event_type": "motion"}
-    from backend.app.assess import assess
+    from app.assess import assess
     assessment = assess(meta, analysis)
 
     assert assessment["priority"] == "low"
@@ -169,12 +203,12 @@ def test_failed_analysis_handles_error_without_crash():
 
 # ------------------------------------------------------------------ 5. Ring Auth and API Error Mapping
 def test_ring_auth_and_api_error_responses():
-    with patch("backend.app.ring.ring.devices", side_effect=RingAuthError(401, "Token expired or revoked")):
+    with patch("app.ring.ring.devices", side_effect=RingAuthError(401, "Token expired or revoked")):
         resp = client.get("/api/ring/devices")
         assert resp.status_code == 401
         assert "Token expired" in resp.json().get("detail", "")
 
-    with patch("backend.app.ring.ring.devices", side_effect=RingError(503, "Ring backend service unavailable")):
+    with patch("app.ring.ring.devices", side_effect=RingError(503, "Ring backend service unavailable")):
         resp = client.get("/api/ring/devices")
         assert resp.status_code == 503
         assert "Ring backend service" in resp.json().get("detail", "")

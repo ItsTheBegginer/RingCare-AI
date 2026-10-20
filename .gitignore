@@ -13,3 +13,4 @@ backend/clips/*.mp4
 backend/.venv/
 __pycache__/
 infra/*.env
+.kiro/

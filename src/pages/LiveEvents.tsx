@@ -32,12 +32,15 @@ export const LiveEventsPage: React.FC<LiveEventsPageProps> = ({
   const [statusFilter, setStatusFilter] = useState<'all' | EventStatus>('all');
   const [selectedCameraId, setSelectedCameraId] = useState<string>('all');
   const [selectedSeverity, setSelectedSeverity] = useState<'all' | EventSeverity>('all');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'caretaking' | 'security'>('all');
 
   // Filter events based on all criteria
   const filteredEvents = events.filter(e => {
     if (statusFilter !== 'all' && e.aiStatus !== statusFilter) return false;
     if (selectedCameraId !== 'all' && e.cameraId !== selectedCameraId) return false;
     if (selectedSeverity !== 'all' && e.severity !== selectedSeverity) return false;
+    if (selectedCategory === 'caretaking' && e.category !== 'caretaking' && e.category != null) return false;
+    if (selectedCategory === 'security' && e.category !== 'security' && e.category !== 'both') return false;
     return true;
   });
 
@@ -66,7 +69,7 @@ export const LiveEventsPage: React.FC<LiveEventsPageProps> = ({
           </div>
         </div>
 
-        {/* Camera and Severity Dropdowns */}
+        {/* Camera, Severity, and Category Dropdowns */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Camera filter */}
           <select
@@ -92,6 +95,17 @@ export const LiveEventsPage: React.FC<LiveEventsPageProps> = ({
             <option value="high">High Severity Only</option>
             <option value="medium">Medium Severity</option>
             <option value="low">Low Severity</option>
+          </select>
+
+          {/* Category filter */}
+          <select
+            value={selectedCategory}
+            onChange={e => setSelectedCategory(e.target.value as 'all' | 'caretaking' | 'security')}
+            className="px-3 py-1.5 text-xs rounded-lg bg-slate-50 border border-slate-200/90 text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-colors"
+          >
+            <option value="all">All Categories</option>
+            <option value="caretaking">Caretaking</option>
+            <option value="security">Security</option>
           </select>
 
           {/* Inject Mock Event Button */}
