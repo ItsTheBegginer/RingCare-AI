@@ -12,3 +12,4 @@ backend/.ring_tokens.json
 backend/clips/*.mp4
 backend/.venv/
 __pycache__/
+infra/*.env

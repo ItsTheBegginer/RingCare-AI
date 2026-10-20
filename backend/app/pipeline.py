@@ -5,6 +5,11 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+try:
+    import boto3
+except ImportError:
+    boto3 = None
+
 from . import db
 from .assess import assess
 from .frames import FileSource
@@ -14,6 +19,28 @@ from .vision import analyze
 CLIPS = Path("clips")
 CLIPS.mkdir(exist_ok=True)
 _lock = threading.Lock()  # one Ring sync at a time
+
+CLIPS_BACKEND = os.getenv("CLIPS_BACKEND", "local")
+S3_BUCKET = os.getenv("S3_BUCKET", "")
+
+
+def _upload_clip_to_s3(local_path: Path) -> bool:
+    """Upload clip to S3 and delete local file. Returns True on success. Never raises."""
+    if not boto3 or not S3_BUCKET:
+        return False
+    try:
+        region = os.getenv("S3_REGION", os.getenv("AWS_REGION", "ap-south-1"))
+        s3 = boto3.client("s3", region_name=region)
+        key = f"clips/{local_path.name}"
+        s3.upload_file(str(local_path), S3_BUCKET, key)
+        local_path.unlink(missing_ok=True)
+        return True
+    except Exception as exc:
+        import logging
+        logging.getLogger("ringcare.pipeline").warning(
+            f"[s3] Failed to upload {local_path.name}: {exc}"
+        )
+        return False
 
 
 # ---------- local sample clips (so the app works before you add real footage) ----------
@@ -121,6 +148,8 @@ def simulate(video: str | None = None, device_id="local-sample", device_name="Lo
         vision, result, thumb = process_clip(path, meta)
         clip_playable = make_playable(path)
         clip_file = clip_playable.name
+        if CLIPS_BACKEND == "s3" and S3_BUCKET:
+            _upload_clip_to_s3(clip_playable)
         video_status = "sample"
     except Exception as exc:
         vision = {"error": f"Clip analysis failed: {exc}"}
@@ -175,6 +204,8 @@ def _ingest_device(dev: dict, limit: int, wait: int, notes: list) -> list:
                 "converted" if ".play." in clip_playable.name or clip_playable.suffix == ".webm" else "ring_clip"
             )
             clip_name = clip_playable.name
+            if CLIPS_BACKEND == "s3" and S3_BUCKET:
+                _upload_clip_to_s3(clip_playable)
         except Exception as exc:
             notes.append(f"{dev['name']}: clip analysis failed ({exc}).")
             vision = {"error": f"Clip analysis failed: {exc}"}

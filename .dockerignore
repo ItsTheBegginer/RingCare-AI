@@ -1,0 +1,15 @@
+.venv
+__pycache__
+*.pyc
+backend/.env
+backend/*.db
+backend/clips/*.mp4
+backend/clips/*.webm
+node_modules
+dist
+.git
+src/
+index.html
+tsconfig.json
+vite.config.ts
+package*.json

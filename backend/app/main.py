@@ -1,38 +1,27 @@
 import asyncio, hashlib, hmac, json, logging, os, re, time
 from contextlib import asynccontextmanager
 from pathlib import Path
-
 from dotenv import load_dotenv
-
 load_dotenv()
-
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel
-
 from . import db, pipeline
 from .notify import get_notifier, SnsNotifier, NtfyNotifier, TelegramNotifier
 from .ring import RingAuthError, RingError, ring
 from .schema import to_event
-
 logger = logging.getLogger("ringcare.main")
-
 subscribers: list[asyncio.Queue] = []
 _device_cache = {"t": 0.0, "devices": []}
 HOURS = ["12 AM", "03 AM", "06 AM", "09 AM", "12 PM", "03 PM", "06 PM", "09 PM"]
 PRIORITY_ORDER = {"low": 1, "medium": 2, "high": 3}
-
 # Shared Ring connection state (safe to read from health endpoint)
 _ring_state: dict = {"status": "ok", "token_expired_logged": False, "last_poll_error": None}
-
-
 def should_alert(prio: str) -> bool:
     min_prio = os.getenv("NOTIFY_MIN_PRIORITY", "medium").lower()
     return PRIORITY_ORDER.get(str(prio).lower(), 1) >= PRIORITY_ORDER.get(min_prio, 2)
-
-
 def notify_initial(ev: dict):
     prio = (ev.get("severity") or ev.get("aiAssessment", {}).get("urgency") or "low").lower()
     if not should_alert(prio):
@@ -43,17 +32,13 @@ def notify_initial(ev: dict):
     notifier = get_notifier()
     ok, err = notifier.send(ev, reminder_n=0)
     db.mark_alerted(eid, expected_reminders=0, error=err if not ok else None)
-
-
 def _check_escalations():
     escalate_after_s = int(os.getenv("ESCALATE_AFTER_MIN", "5")) * 60
     max_reminders = int(os.getenv("MAX_REMINDERS", "3"))
     min_prio = os.getenv("NOTIFY_MIN_PRIORITY", "medium").lower()
-
     unacked = db.unacknowledged(limit=50)
     now = time.time()
     notifier = get_notifier()
-
     for r in unacked:
         if r.get("status") != "new":
             continue
@@ -61,10 +46,8 @@ def _check_escalations():
         prio = (assessment.get("priority") or "low").lower()
         if PRIORITY_ORDER.get(prio, 1) < PRIORITY_ORDER.get(min_prio, 2):
             continue
-
         reminders = int(r.get("reminders") or 0)
         eid = r.get("event_id") or r.get("id")
-
         if reminders == 0:
             ok, err = notifier.send(r, reminder_n=0)
             db.mark_alerted(eid, expected_reminders=0, error=err if not ok else None)
@@ -74,8 +57,6 @@ def _check_escalations():
                 next_reminder = reminders + 1
                 ok, err = notifier.send(r, reminder_n=next_reminder)
                 db.mark_alerted(eid, expected_reminders=reminders, error=err if not ok else None)
-
-
 async def escalator():
     while True:
         await asyncio.sleep(30)
@@ -83,8 +64,6 @@ async def escalator():
             await run_in_threadpool(_check_escalations)
         except Exception as e:
             logger.error(f"[escalator] Error in escalation cycle: {e}")
-
-
 def publish(ev: dict):
     light = {**ev, "thumbnail": None}
     for q in list(subscribers):
@@ -93,12 +72,6 @@ def publish(ev: dict):
         notify_initial(ev)
     except Exception as e:
         logger.warning(f"[notify] Initial alert dispatch error: {e}")
-    # Phase 9 — optional Bedrock review agent (runs after alert, never in alert path)
-    if os.getenv("AGENT_ENABLED", "false").lower() == "true":
-        from .agent import maybe_review
-        asyncio.ensure_future(run_in_threadpool(maybe_review, ev))
-
-
 async def poller(seconds: int):
     while True:
         await asyncio.sleep(seconds)
@@ -126,8 +99,6 @@ async def poller(seconds: int):
         except Exception as e:
             _ring_state["last_poll_error"] = str(e)
             logger.warning(f"[poll] Unexpected error (will retry): {e}")
-
-
 @asynccontextmanager
 async def lifespan(app):
     db.init()
@@ -141,26 +112,18 @@ async def lifespan(app):
     if poll_task:
         poll_task.cancel()
     escalator_task.cancel()
-
-
 app = FastAPI(title="RingCare AI", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
                    allow_methods=["*"], allow_headers=["*"])
-
-
 def _pid(eid: str) -> str:
     clean = str(eid).strip()
     if not clean:
         raise HTTPException(404, "Unknown event id")
     return clean
-
-
 def _light(row):
     e = to_event(row)
     e["thumbnail"] = None
     return e
-
-
 def _fail(e: Exception):
     if isinstance(e, RingAuthError):
         raise HTTPException(401, e.message)
@@ -175,19 +138,13 @@ def _fail(e: Exception):
         msg = err_info.get("Message", str(e))
         raise HTTPException(502, f"AWS service error ({code}): {msg}")
     raise HTTPException(500, f"Internal server error: {e}")
-
-
 @app.exception_handler(RingAuthError)
 async def ring_auth_error_handler(request: Request, exc: RingAuthError):
     return JSONResponse(status_code=401, content={"detail": exc.message})
-
-
 @app.exception_handler(RingError)
 async def ring_error_handler(request: Request, exc: RingError):
     status_code = exc.status if 400 <= exc.status < 600 else 502
     return JSONResponse(status_code=status_code, content={"detail": exc.message})
-
-
 # ------------------------------------------------------------------ health / ring
 @app.get("/api/health")
 def health():
@@ -198,13 +155,11 @@ def health():
         ring_status = "not_configured"
     else:
         ring_status = _ring_state.get("status", "ok")
-
     storage_status = "ok"
     try:
         db.list_events(1)
     except Exception as exc:
         storage_status = f"unhealthy: {exc}"
-
     return {
         "ok": storage_status == "ok",
         "storage": backend,
@@ -216,11 +171,10 @@ def health():
         "ring_configured": ring.configured,
         "notify": notify_channels,
         "sns_configured": bool(os.getenv("SNS_TOPIC_ARN")),
+        "clips_backend": os.getenv("CLIPS_BACKEND", "local"),
+        "s3_bucket": bool(os.getenv("S3_BUCKET")),
         "sample_clips": [p.name for p in pipeline.sample_clips()],
-        "agent": "enabled" if os.getenv("AGENT_ENABLED", "false").lower() == "true" else "disabled",
     }
-
-
 # ------------------------------------------------------------------ notifications
 @app.get("/api/notify/config")
 def notify_config():
@@ -236,12 +190,8 @@ def notify_config():
         "max_reminders": int(os.getenv("MAX_REMINDERS", "3")),
         "resident_name": os.getenv("RESIDENT_NAME", "Eleanor Vance"),
     }
-
-
 class NotifyTestBody(BaseModel):
     channel: str | None = None
-
-
 @app.post("/api/notify/test")
 async def notify_test(body: NotifyTestBody | None = None):
     test_event = {
@@ -256,33 +206,24 @@ async def notify_test(body: NotifyTestBody | None = None):
         "fallIndicator": {"level": "none", "signals": []},
         "securityIndicator": {"level": "none", "signals": []},
     }
-
     results = {}
     target = body.channel.lower().strip() if body and body.channel else None
-
     if not target or target == "sns":
         sns_notifier = SnsNotifier()
         ok, err = await run_in_threadpool(sns_notifier.send, test_event)
         results["sns"] = {"ok": ok, "error": err}
-
     if not target or target == "ntfy":
         ntfy_notifier = NtfyNotifier()
         ok, err = await run_in_threadpool(ntfy_notifier.send, test_event)
         results["ntfy"] = {"ok": ok, "error": err}
-
     if not target or target == "telegram":
         tg_notifier = TelegramNotifier()
         ok, err = await run_in_threadpool(tg_notifier.send, test_event)
         results["telegram"] = {"ok": ok, "error": err}
-
     overall_ok = any(r.get("ok") for r in results.values())
     return {"ok": overall_ok, "results": results}
-
-
 class TokenBody(BaseModel):
     access_token: str
-
-
 @app.post("/api/ring/token")
 def set_token(body: TokenBody):
     ring.set_access_token(body.access_token)
@@ -292,8 +233,6 @@ def set_token(body: TokenBody):
     _ring_state["token_expired_logged"] = False
     _ring_state["last_poll_error"] = None
     return {"ok": True}
-
-
 def _devices(force=False):
     if not ring.configured:
         return []
@@ -303,20 +242,14 @@ def _devices(force=False):
             d["online"] = ring.device_online(d["id"])
         _device_cache.update(t=time.time(), devices=devs)
     return _device_cache["devices"]
-
-
 @app.get("/api/ring/devices")
 async def ring_devices():
     try:
         return await run_in_threadpool(_devices, True)
     except Exception as e:
         _fail(e)
-
-
 class SyncBody(BaseModel):
     limit: int = 5
-
-
 @app.post("/api/ring/sync")
 async def ring_sync(body: SyncBody | None = None):
     try:
@@ -327,8 +260,6 @@ async def ring_sync(body: SyncBody | None = None):
     for e in events:
         publish(e)
     return {"added": len(events), "events": [{**e, "thumbnail": None} for e in events], "notes": res["notes"]}
-
-
 async def _webhook_ingest(device_id: str, ring_event_id: str | None = None):
     try:
         # If a specific ring event id was provided, skip if already ingested
@@ -340,11 +271,7 @@ async def _webhook_ingest(device_id: str, ring_event_id: str | None = None):
             publish(to_event(db.get(i)))
     except Exception as e:
         logger.warning(f"[webhook] Ingestion error for device {device_id}: {e}")
-
-
 KNOWN_MOTION_TYPES = {"motion_detected", "motion", "on_demand", "ding"}
-
-
 @app.post("/api/webhooks/ring")
 async def ring_webhook(request: Request, bg: BackgroundTasks):
     raw = await request.body()
@@ -361,30 +288,22 @@ async def ring_webhook(request: Request, bg: BackgroundTasks):
         payload = json.loads(raw)
     except ValueError:
         raise HTTPException(400, "invalid JSON")
-
     data = payload.get("data", payload)
     etype = (data.get("type") or "").lower()
     attrs = data.get("attributes", {}) or {}
-
     if etype not in KNOWN_MOTION_TYPES:
         return {"status": "ignored", "reason": f"unsupported event type: {etype}"}
-
     ring_event_id = str(data.get("id", "")) or None
     # Immediately reject known duplicates before spawning a background task
     if ring_event_id and db.has_ring_event(ring_event_id):
         return {"status": "ignored", "reason": "duplicate event"}
-
     did = attrs.get("device_id") or re.sub(rf"_{etype}_\d+$", "", str(data.get("id", "")))
     if did:
         bg.add_task(_webhook_ingest, did, ring_event_id)  # reply 200 immediately (Ring requires <5s)
     return {"status": "ok"}
-
-
 # ------------------------------------------------------------------ events
 class SimBody(BaseModel):
     video: str | None = None
-
-
 @app.post("/api/events/simulate")
 async def simulate(body: SimBody | None = None):
     try:
@@ -394,37 +313,46 @@ async def simulate(body: SimBody | None = None):
     ev = to_event(db.get(rid))
     publish(ev)
     return ev
-
-
 @app.get("/api/events")
 def events():
     return [_light(r) for r in db.list_events(100)]
-
-
 @app.get("/api/events/{eid}")
 def event(eid: str):
     r = db.get(_pid(eid))
     if not r:
         raise HTTPException(404, "Event not found")
     return to_event(r)
-
-
 @app.get("/api/events/{eid}/clip")
 def clip(eid: str):
     r = db.get(_pid(eid))
     if not r or not r.get("clip_file"):
         raise HTTPException(404, "No clip recorded for this event")
-    path = pipeline.CLIPS / Path(r["clip_file"]).name
+    filename = Path(r["clip_file"]).name
+    clips_backend = os.getenv("CLIPS_BACKEND", "local")
+    s3_bucket = os.getenv("S3_BUCKET", "")
+    # Try S3 pre-signed URL first when configured
+    if clips_backend == "s3" and s3_bucket:
+        try:
+            import boto3
+            region = os.getenv("S3_REGION", os.getenv("AWS_REGION", "ap-south-1"))
+            s3 = boto3.client("s3", region_name=region)
+            url = s3.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": s3_bucket, "Key": f"clips/{filename}"},
+                ExpiresIn=900,
+            )
+            return RedirectResponse(url, status_code=302)
+        except Exception as exc:
+            logger.warning(f"[s3] Pre-signed URL failed for {filename}: {exc}")
+            # fall through to local file check
+    # Local fallback
+    path = pipeline.CLIPS / filename
     if not path.exists():
         raise HTTPException(404, "Clip file missing on disk")
     media_type = "video/webm" if path.suffix == ".webm" else "video/mp4"
     return FileResponse(path, media_type=media_type, headers={"Accept-Ranges": "bytes"})
-
-
 class ActionBody(BaseModel):
     note: str | None = None
-
-
 @app.post("/api/events/{eid}/{action}")
 def act(eid: str, action: str, body: ActionBody | None = None):
     if action not in ("acknowledge", "dismiss"):
@@ -439,25 +367,17 @@ def act(eid: str, action: str, body: ActionBody | None = None):
     if not updated:
         raise HTTPException(500, "Failed to retrieve event after status update")
     return _light(updated)
-
-
 @app.post("/api/reset")
 def reset():
     db.clear()
     return {"ok": True}
-
-
 # ------------------------------------------------------------------ settings
 @app.get("/api/settings")
 def get_settings():
     return db.get_settings()
-
-
 @app.put("/api/settings")
 def update_settings(settings: dict):
     return db.put_settings(settings)
-
-
 # ------------------------------------------------------------------ cameras / summary / chart
 @app.get("/api/cameras")
 def cameras():
@@ -483,8 +403,6 @@ def cameras():
             "resolution": "Ring media (watermarked)" if not cid.startswith("local") else "Synthetic sample",
             "signalStrength": "good", "firmwareVersion": "n/a", "zoneTags": []})
     return out
-
-
 @app.get("/api/dashboard/summary")
 def summary():
     evs = [_light(r) for r in db.list_events(100)]
@@ -493,8 +411,6 @@ def summary():
     return {"todayEventsCount": len(evs), "requiresReviewCount": review, "normalActivityCount": len(evs) - review,
             "camerasOnlineCount": sum(c["status"] == "online" for c in cams), "totalCamerasCount": len(cams),
             "lastUpdated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "monitoringActive": True}
-
-
 @app.get("/api/analytics/hourly-activity")
 def hourly():
     buckets = [{"hourLabel": h, "totalEvents": 0, "reviewEvents": 0, "normalEvents": 0, "motionAverage": 0.0} for h in HOURS]
@@ -509,14 +425,11 @@ def hourly():
     for i, b in enumerate(buckets):
         b["motionAverage"] = round(sums[i] / b["totalEvents"], 2) if b["totalEvents"] else 0.0
     return buckets
-
-
 # ------------------------------------------------------------------ live updates
 @app.get("/api/stream")
 async def stream():
     q: asyncio.Queue = asyncio.Queue()
     subscribers.append(q)
-
     async def gen():
         try:
             while True:
@@ -526,5 +439,4 @@ async def stream():
                     yield ": keepalive\n\n"
         finally:
             subscribers.remove(q)
-
     return StreamingResponse(gen(), media_type="text/event-stream")
