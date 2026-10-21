@@ -330,7 +330,7 @@ async def simulate(body: SimBody | None = None):
         if row:
             ev = to_event(row)
             break
-        time.sleep(0.5)
+        await asyncio.sleep(0.5)
     if ev is None:
         raise HTTPException(500, "Event stored but could not be retrieved")
     publish(ev)

@@ -117,7 +117,7 @@ class DynamoDbStore(EventStore):
         clean = str(eid).strip()
         if clean.startswith("ring#") or clean.startswith("sim#"):
             return clean
-        # Query GSI by-public-id if configured, or query by-home-time and match id
+        # Query GSI by-public-id — verify the returned item's id actually matches
         try:
             resp = self.events_table.query(
                 IndexName="by-public-id",
@@ -127,22 +127,30 @@ class DynamoDbStore(EventStore):
                 Limit=1,
             )
             items = resp.get("Items", [])
-            if items:
+            if items and items[0].get("id") == clean:
                 return items[0]["event_id"]
         except Exception:
             pass
-        # Fallback: query newest events from by-home-time GSI
+        # Fallback: paginate by-home-time GSI and match id field exactly
         try:
-            resp = self.events_table.query(
-                IndexName="by-home-time",
-                KeyConditionExpression="home_id = :h",
-                ExpressionAttributeValues={":h": "default"},
-                ScanIndexForward=False,
-                Limit=100,
-            )
-            for it in resp.get("Items", []):
-                if it.get("id") == clean or it.get("event_id") == clean:
-                    return it["event_id"]
+            last_key = None
+            while True:
+                kwargs: dict = {
+                    "IndexName": "by-home-time",
+                    "KeyConditionExpression": "home_id = :h",
+                    "ExpressionAttributeValues": {":h": "default"},
+                    "ScanIndexForward": False,
+                    "Limit": 100,
+                }
+                if last_key:
+                    kwargs["ExclusiveStartKey"] = last_key
+                resp = self.events_table.query(**kwargs)
+                for it in resp.get("Items", []):
+                    if it.get("id") == clean or it.get("event_id") == clean:
+                        return it["event_id"]
+                last_key = resp.get("LastEvaluatedKey")
+                if not last_key:
+                    break
         except Exception as e:
             logger.warning(f"Error resolving pk for {clean}: {e}")
         return None

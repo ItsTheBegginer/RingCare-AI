@@ -257,8 +257,8 @@ def _ingest_device(dev: dict, limit: int, wait: int, notes: list) -> tuple[list,
                 "vision": vision,
                 "assessment": result,
                 "thumbnail": thumb,
-                "clip_file": clip_name if "clip_name" in locals() else None,
-                "video_status": v_status if "v_status" in locals() else "unavailable",
+                "clip_file": clip_name,
+                "video_status": v_status,
             })
     return ids, rows
 

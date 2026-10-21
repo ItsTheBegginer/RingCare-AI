@@ -54,10 +54,11 @@ def to_event(r: dict) -> dict:
         color = "#ef4444" if prio == "high" else "#f59e0b" if prio == "medium" else "#10b981"
         boxes = [{"id": f"box_{eid}", "label": "Person", "confidence": b.get("confidence", 0.5), "color": color,
                   "rect": {k: b[k] for k in ("top", "left", "width", "height")}}]
-    status = r["status"] if r["status"] in ("acknowledged", "dismissed") else ("review" if prio != "low" else "normal")
+    row_status = r.get("status", "new")
+    status = row_status if row_status in ("acknowledged", "dismissed") else ("review" if prio != "low" else "normal")
     evidence = a.get("observed_evidence") or a.get("reasons", [])
     rationale = "; ".join(evidence) or "No notable indicators."
-    if r["source"] == "ring+sample-clip":
+    if r.get("source") == "ring+sample-clip":
         rationale = "[Ring clip unavailable - analysed a local SAMPLE clip] " + rationale
     v_status = _video_status(r, err)
     rec_action = a.get("recommended_action") or a.get("suggested_action", "")

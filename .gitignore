@@ -14,3 +14,4 @@ backend/.venv/
 __pycache__/
 infra/*.env
 .kiro/
+backend/clips

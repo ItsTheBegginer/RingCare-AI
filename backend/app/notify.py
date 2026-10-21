@@ -176,7 +176,7 @@ class Notifier(ABC):
 
 class SnsNotifier(Notifier):
     def __init__(self, topic_arn: Optional[str] = None, region_name: Optional[str] = None, client: Optional[Any] = None):
-        self.topic_arn = topic_arn or os.getenv("SNS_TOPIC_ARN", "")
+        self.topic_arn = os.getenv("SNS_TOPIC_ARN", "") if topic_arn is None else topic_arn
         self.region_name = region_name or os.getenv("AWS_REGION", "ap-south-1")
         self._client = client
 
