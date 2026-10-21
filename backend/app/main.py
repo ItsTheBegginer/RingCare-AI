@@ -81,8 +81,12 @@ async def poller(seconds: int):
             _ring_state["status"] = "ok"
             _ring_state["token_expired_logged"] = False
             _ring_state["last_poll_error"] = None
-            for i in res["ids"]:
-                publish(to_event(db.get(i)))
+            rows = res.get("rows") or []
+            for row in rows:
+                try:
+                    publish(to_event(row))
+                except Exception as e:
+                    logger.warning(f"[poll] Failed to publish event: {e}")
         except RingAuthError as e:
             # Log token expiry only once to avoid log spam
             _ring_state["status"] = "token_expired"
@@ -256,9 +260,15 @@ async def ring_sync(body: SyncBody | None = None):
         res = await run_in_threadpool(pipeline.sync_ring, (body.limit if body else 5))
     except Exception as e:
         _fail(e)
-    events = [to_event(db.get(i)) for i in res["ids"]]
-    for e in events:
-        publish(e)
+    rows = res.get("rows") or []
+    events = []
+    for row in rows:
+        try:
+            ev = to_event(row)
+            events.append(ev)
+            publish(ev)
+        except Exception as e:
+            logger.warning(f"[sync] Failed to process event row: {e}")
     return {"added": len(events), "events": [{**e, "thumbnail": None} for e in events], "notes": res["notes"]}
 async def _webhook_ingest(device_id: str, ring_event_id: str | None = None):
     try:
@@ -267,8 +277,12 @@ async def _webhook_ingest(device_id: str, ring_event_id: str | None = None):
             logger.info(f"[webhook] Duplicate ring event {ring_event_id} - skipping ingestion")
             return
         res = await run_in_threadpool(pipeline.sync_ring, 3, 40, device_id)  # wait up to 40s for the clip
-        for i in res["ids"]:
-            publish(to_event(db.get(i)))
+        rows = res.get("rows") or []
+        for row in rows:
+            try:
+                publish(to_event(row))
+            except Exception as e:
+                logger.warning(f"[webhook] Failed to publish event row: {e}")
     except Exception as e:
         logger.warning(f"[webhook] Ingestion error for device {device_id}: {e}")
 KNOWN_MOTION_TYPES = {"motion_detected", "motion", "on_demand", "ding"}
@@ -310,7 +324,15 @@ async def simulate(body: SimBody | None = None):
         rid = await run_in_threadpool(pipeline.simulate, body.video if body else None)
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
-    ev = to_event(db.get(rid))
+    ev = None
+    for _ in range(3):
+        row = db.get(rid)
+        if row:
+            ev = to_event(row)
+            break
+        time.sleep(0.5)
+    if ev is None:
+        raise HTTPException(500, "Event stored but could not be retrieved")
     publish(ev)
     return ev
 @app.get("/api/events")

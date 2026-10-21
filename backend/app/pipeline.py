@@ -170,15 +170,15 @@ def simulate(video: str | None = None, device_id="local-sample", device_name="Lo
                      clip_file=clip_file, video_status=video_status)
 
 
-def _ingest_device(dev: dict, limit: int, wait: int, notes: list) -> list:
+def _ingest_device(dev: dict, limit: int, wait: int, notes: list) -> tuple[list, list]:
     allow_fallback = os.getenv("RING_SAMPLE_FALLBACK", "true").lower() == "true"
     try:
         events = ring.events(dev["id"], limit=25)
     except RingError as e:
         notes.append(f"{dev['name']}: event history failed ({e.message[:120]})")
-        return []
+        return [], []
     fresh = [e for e in events if not db.has_ring_event(e["id"])][:limit]
-    ids = []
+    ids, rows = [], []
     for e in reversed(fresh):  # oldest first
         start = e["start_ms"] or int(time.time() * 1000)
         meta = {"device_id": dev["id"], "device_name": dev["name"], "ring_event_type": e["event_type"],
@@ -199,10 +199,25 @@ def _ingest_device(dev: dict, limit: int, wait: int, notes: list) -> list:
                 path, source = random.choice(samples), "ring+sample-clip"
             else:
                 vision = {"error": "Ring clip unavailable and sample fallback disabled"}
-                rid = db.insert(dev["id"], dev["name"], "ring", vision, assess(meta, vision), None,
+                result = assess(meta, vision)
+                rid = db.insert(dev["id"], dev["name"], "ring", vision, result, None,
                                 event_ts=start / 1000, ring_event_id=e["id"], video_status="unavailable")
                 if rid:
                     ids.append(rid)
+                    rows.append({
+                        "id": rid,
+                        "event_id": rid,
+                        "device_id": dev["id"],
+                        "device_name": dev["name"],
+                        "source": "ring",
+                        "event_ts": start / 1000,
+                        "status": "new",
+                        "vision": vision,
+                        "assessment": result,
+                        "thumbnail": None,
+                        "clip_file": None,
+                        "video_status": "unavailable",
+                    })
                 continue
 
         try:
@@ -231,18 +246,34 @@ def _ingest_device(dev: dict, limit: int, wait: int, notes: list) -> list:
                         ring_event_id=e["id"], clip_file=clip_name, video_status=v_status)
         if rid:
             ids.append(rid)
-    return ids
+            rows.append({
+                "id": rid,
+                "event_id": rid,
+                "device_id": dev["id"],
+                "device_name": dev["name"],
+                "source": source,
+                "event_ts": start / 1000,
+                "status": "new",
+                "vision": vision,
+                "assessment": result,
+                "thumbnail": thumb,
+                "clip_file": clip_name if "clip_name" in locals() else None,
+                "video_status": v_status if "v_status" in locals() else "unavailable",
+            })
+    return ids, rows
 
 
 def sync_ring(limit=5, wait=0, only_device: str | None = None) -> dict:
-    """Pull new events + clips from Ring. Returns {'ids': [...], 'notes': [...]}."""
+    """Pull new events + clips from Ring. Returns {'ids': [...], 'rows': [...], 'notes': [...]}."""
     if not ring.configured:
         raise RingError(400, "Ring is not configured. Set RING_ACCESS_TOKEN (Playground) in backend/.env")
-    notes, ids = [], []
+    notes, ids, rows = [], [], []
     with _lock:
         devices = ring.devices()
         if only_device:
             devices = [d for d in devices if d["id"] == only_device] or [{"id": only_device, "name": "Ring device"}]
         for d in devices:
-            ids += _ingest_device(d, limit, wait, notes)
-    return {"ids": ids, "notes": notes}
+            new_ids, new_rows = _ingest_device(d, limit, wait, notes)
+            ids += new_ids
+            rows += new_rows
+    return {"ids": ids, "rows": rows, "notes": notes}
