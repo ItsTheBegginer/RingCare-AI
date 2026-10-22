@@ -133,7 +133,7 @@ def process_clip(path: Path, meta: dict):
     return vision, result, thumb
 
 
-def simulate(video: str | None = None, device_id="local-sample", device_name="Local sample camera") -> int:
+def simulate(video: str | None = None, device_id="local-sample", device_name="Local sample camera") -> tuple:
     if video:
         path = CLIPS / Path(video).name  # no path traversal
         if not path.exists():
@@ -166,8 +166,23 @@ def simulate(video: str | None = None, device_id="local-sample", device_name="Lo
         clip_file = None
         video_status = "unavailable"
 
-    return db.insert(device_id, device_name, "simulated", vision, result, thumb,
-                     clip_file=clip_file, video_status=video_status)
+    rid = db.insert(device_id, device_name, "simulated", vision, result, thumb,
+                    clip_file=clip_file, video_status=video_status)
+    row = {
+        "id": rid,
+        "event_id": rid,
+        "device_id": device_id,
+        "device_name": device_name,
+        "source": "simulated",
+        "event_ts": time.time(),
+        "status": "new",
+        "vision": vision,
+        "assessment": result,
+        "thumbnail": thumb,
+        "clip_file": clip_file,
+        "video_status": video_status,
+    }
+    return rid, row
 
 
 def _ingest_device(dev: dict, limit: int, wait: int, notes: list) -> tuple[list, list]:

@@ -107,10 +107,6 @@ export interface HourlyActivityBucket {
 export interface CaregiverSettings {
   monitoringEnabled: boolean;
   reviewNotificationsEnabled: boolean;
-  soundAlertsEnabled: boolean;
-  stationaryAlertThresholdSeconds: number;
-  aiReviewSensitivity: 'low' | 'balanced' | 'high';
-  cameraNightModeEnhance: boolean;
   securityDetectionEnabled: boolean;
   residentProfile: {
     name: string;

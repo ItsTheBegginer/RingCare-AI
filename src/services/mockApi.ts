@@ -5,10 +5,6 @@ const STORAGE_SETTINGS_KEY = 'ringcare_ai_settings_v1';
 const INITIAL_SETTINGS: CaregiverSettings = {
   monitoringEnabled: true,
   reviewNotificationsEnabled: true,
-  soundAlertsEnabled: false,
-  stationaryAlertThresholdSeconds: 5,
-  aiReviewSensitivity: 'balanced',
-  cameraNightModeEnhance: true,
   securityDetectionEnabled: true,
   residentProfile: {
     name: 'Eleanor Vance',

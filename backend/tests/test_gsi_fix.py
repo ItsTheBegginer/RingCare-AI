@@ -6,8 +6,8 @@ Tests cover:
   3. poller publishes events from res["rows"] without calling db.get.
   4. ring_sync route builds its response from res["rows"] without calling db.get.
   5. _webhook_ingest calls publish from res["rows"] without calling db.get.
-  6. Simulate route returns 200 when db.get returns None on first attempt, row on second.
-  7. Simulate route returns HTTP 500 when db.get returns None on all 3 attempts.
+  6. Simulate route builds its event from the in-memory row returned by simulate() (no db.get).
+  7. Simulate route returns HTTP 500 when simulate() yields no rid (insert failed).
 """
 import asyncio
 import json
@@ -267,61 +267,38 @@ def test_webhook_ingest_uses_rows_not_db_get():
 
 
 # ---------------------------------------------------------------------------
-# 6. Simulate route: db.get returns None first, then row — still returns 200
+# 6. Simulate route: builds event from the in-memory row returned by simulate()
 # ---------------------------------------------------------------------------
-
-def test_simulate_retries_db_get_and_succeeds():
-    """Simulate route must retry db.get up to 3 times; return 200 on second attempt."""
-    call_count = {"n": 0}
-
-    def db_get_side_effect(rid):
-        call_count["n"] += 1
-        if call_count["n"] == 1:
-            return None  # first attempt: simulate GSI not-yet-visible
-        return {
-            **SAMPLE_ROW,
-            "id": rid,
-            "event_id": rid,
-        }
-
-    with patch("app.main.pipeline.simulate", return_value="evt_aabbccdd1234"), \
-         patch("app.main.db.get", side_effect=db_get_side_effect), \
+def test_simulate_uses_in_memory_row_not_db_get():
+    """Simulate route must build the event from the in-memory row returned by
+    pipeline.simulate() and must NOT call db.get (avoids GSI eventual-consistency lag)."""
+    rid = "evt_aabbccdd1234"
+    sim_row = {
+        **SAMPLE_ROW,
+        "id": rid,
+        "event_id": rid,
+        "source": "simulated",
+    }
+    with patch("app.main.pipeline.simulate", return_value=(rid, sim_row)), \
          patch("app.main.publish"), \
-         patch("app.main.time") as mock_time:
-
-        # Make time.sleep a no-op so the test doesn't actually wait
-        mock_time.sleep = MagicMock()
-        mock_time.time = time.time
-        mock_time.gmtime = time.gmtime
-        mock_time.strftime = time.strftime
-        mock_time.localtime = time.localtime
-
+         patch("app.main.db") as mock_db:
         resp = client.post("/api/events/simulate", json={"video": "sample_walk.mp4"})
-
     assert resp.status_code == 200
     data = resp.json()
-    assert "id" in data
-    assert call_count["n"] == 2  # first None, then success
-
+    assert data["id"] == rid
+    # The route must not fall back to db.get at all
+    mock_db.get.assert_not_called()
 
 # ---------------------------------------------------------------------------
-# 7. Simulate route: db.get returns None every time — returns HTTP 500
+# 7. Simulate route: simulate() yields no rid -> HTTP 500
 # ---------------------------------------------------------------------------
-
-def test_simulate_returns_500_when_db_get_always_none():
-    """Simulate route must return HTTP 500 if db.get returns None on all 3 attempts."""
-    with patch("app.main.pipeline.simulate", return_value="evt_aabbccdd1234"), \
-         patch("app.main.db.get", return_value=None), \
+def test_simulate_returns_500_when_no_rid():
+    """Simulate route must return HTTP 500 when pipeline.simulate() yields no rid
+    (insert failed), without calling db.get."""
+    with patch("app.main.pipeline.simulate", return_value=(None, None)), \
          patch("app.main.publish"), \
-         patch("app.main.time") as mock_time:
-
-        mock_time.sleep = MagicMock()
-        mock_time.time = time.time
-        mock_time.gmtime = time.gmtime
-        mock_time.strftime = time.strftime
-        mock_time.localtime = time.localtime
-
+         patch("app.main.db") as mock_db:
         resp = client.post("/api/events/simulate", json={"video": "sample_walk.mp4"})
-
     assert resp.status_code == 500
-    assert "could not be retrieved" in resp.json().get("detail", "").lower()
+    assert "could not store event" in resp.json().get("detail", "").lower()
+    mock_db.get.assert_not_called()

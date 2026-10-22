@@ -321,18 +321,12 @@ class SimBody(BaseModel):
 @app.post("/api/events/simulate")
 async def simulate(body: SimBody | None = None):
     try:
-        rid = await run_in_threadpool(pipeline.simulate, body.video if body else None)
+        rid, row = await run_in_threadpool(pipeline.simulate, body.video if body else None)
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
-    ev = None
-    for _ in range(3):
-        row = db.get(rid)
-        if row:
-            ev = to_event(row)
-            break
-        await asyncio.sleep(0.5)
-    if ev is None:
-        raise HTTPException(500, "Event stored but could not be retrieved")
+    if not rid:
+        raise HTTPException(500, "Simulation failed: could not store event")
+    ev = to_event(row)
     publish(ev)
     return ev
 @app.get("/api/events")
